@@ -1,18 +1,39 @@
-use ray::Ray;
-use vec3::unit_vector;
+use std::vec;
 
-use crate::{
-    color::write_color,
-    vec3::{Color, Point3, Vec3},
-};
+use color::convert_color;
+use ray::Ray;
+use softbuffer::GraphicsContext;
+use vec3::{dot, unit_vector, Color};
+use winit::{event::Event, event_loop::EventLoop, window::WindowBuilder};
+
+use crate::vec3::{Point3, Vec3};
 
 mod color;
 mod ray;
 mod vec3;
 
+fn hit_sphere(center: Point3, radius: f32, r: &Ray) -> f32 {
+    let oc = r.origin - center;
+    let a = dot(r.direction, r.direction);
+    let b = 2.0 * dot(oc, r.direction);
+    let c = dot(oc, oc) - radius * radius;
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        -1.0
+    } else {
+        (-b - discriminant.sqrt()) / (2.0 * a)
+    }
+}
+
 fn ray_color(r: &Ray) -> Color {
+    let mut t = hit_sphere(Point3::new(0.0, 0.0, -1.0), 0.5, r);
+    if t > 0.0 {
+        let n = unit_vector(r.at(t) - Vec3::new(0.0, 0.0, -1.0));
+        return Color::new(n.x + 1.0, n.y + 1.0, n.z + 1.0) * 0.5;
+    }
+
     let unit_direction = unit_vector(r.direction);
-    let t = 0.5 * (unit_direction.y + 1.0);
+    t = (unit_direction.y + 1.0) * 0.5;
     Color::new(1.0, 1.0, 1.0) * (1.0 - t) + Color::new(0.5, 0.7, 1.0) * t
 }
 
@@ -36,20 +57,53 @@ fn main() {
 
     // Render
 
-    println!("P3\n{} {}\n255", image_width, image_height);
+    let mut buffer = vec![0u32; (image_width * image_height) as usize];
 
-    for j in (0..image_height).rev() {
-        for i in 0..image_width {
-            let u = i as f32 / (image_width - 1) as f32;
-            let v = j as f32 / (image_height - 1) as f32;
-            let r = Ray::new(
-                origin,
-                lower_left_corner + horizontal * u + vertical * v - origin,
-            );
-            let pixel_color = ray_color(&r);
-            write_color(&mut std::io::stdout(), pixel_color).unwrap();
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("Image Window")
+        .with_inner_size(winit::dpi::LogicalSize::new(image_width, image_height))
+        .build(&event_loop)
+        .unwrap();
+    let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
+
+    let mut redraw = true;
+
+    event_loop.run(move |event, _, control_flow| {
+        control_flow.set_wait();
+
+        match event {
+            Event::WindowEvent {
+                event: winit::event::WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = winit::event_loop::ControlFlow::Exit,
+            Event::MainEventsCleared => {
+                // Application update code.
+
+                // Queue a RedrawRequested event.
+                //
+                // You only need to call this if you've determined that you need to redraw, in
+                // applications which do not always need to. Applications that redraw continuously
+                // can just render here instead.
+                if redraw {
+                    for j in (0..image_height).rev() {
+                        for i in 0..image_width {
+                            let u = i as f32 / (image_width - 1) as f32;
+                            let v = j as f32 / (image_height - 1) as f32;
+                            let r = Ray::new(
+                                origin,
+                                lower_left_corner + horizontal * u + vertical * v - origin,
+                            );
+                            let pixel_color = ray_color(&r);
+                            buffer[((image_height - j - 1) * image_width + i) as usize] =
+                                convert_color(pixel_color);
+                        }
+                    }
+                    graphics_context.set_buffer(&buffer, image_width as u16, image_height as u16);
+                    redraw = false;
+                }
+            }
+            _ => (),
         }
-    }
-
-    eprintln!("Done.");
+    });
 }

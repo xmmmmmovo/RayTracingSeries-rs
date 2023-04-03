@@ -2,6 +2,7 @@ use std::vec;
 
 use color::convert_color;
 use hittable::Hittable;
+use rand::Rng;
 use ray::Ray;
 use softbuffer::GraphicsContext;
 use sphere::Sphere;
@@ -12,7 +13,10 @@ use winit::{
     window::WindowBuilder,
 };
 
-use crate::vec3::{Point3, Vec3};
+use crate::{
+    camera::Camera,
+    vec3::{Point3, Vec3},
+};
 
 mod camera;
 mod color;
@@ -37,6 +41,7 @@ fn main() {
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 400;
     let image_height = (image_width as f32 / aspect_ratio) as i32;
+    const SAMPLES_PER_PIXEL: u32 = 100;
 
     // World
     let world: hittable::HittableList = vec![
@@ -45,15 +50,8 @@ fn main() {
     ];
 
     // Camera
-    let viewport_height: f32 = 2.0;
-    let viewport_width: f32 = aspect_ratio * viewport_height;
-    let focal_length: f32 = 1.0;
-
-    let mut origin = Point3::new(0.0, 0.0, 0.0);
-    let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, viewport_height, 0.0);
-    let lower_left_corner =
-        origin - horizontal / 2.0 - vertical / 2.0 - Vec3::new(0.0, 0.0, focal_length);
+    let camera = Camera::new();
+    let mut rng = rand::thread_rng();
 
     // Render
     let mut buffer = vec![0u32; (image_width * image_height) as usize];
@@ -82,16 +80,12 @@ fn main() {
                             *control_flow = winit::event_loop::ControlFlow::Exit;
                         } else if virtual_keycode == VirtualKeyCode::W {
                             // TODO: 需要更新view矩阵
-                            origin.z -= 0.1;
                             redraw = true;
                         } else if virtual_keycode == VirtualKeyCode::S {
-                            origin.z += 0.1;
                             redraw = true;
                         } else if virtual_keycode == VirtualKeyCode::A {
-                            origin.x -= 0.1;
                             redraw = true;
                         } else if virtual_keycode == VirtualKeyCode::D {
-                            origin.x += 0.1;
                             redraw = true;
                         }
                     }
@@ -109,15 +103,18 @@ fn main() {
                 if redraw {
                     for j in (0..image_height).rev() {
                         for i in 0..image_width {
-                            let u = i as f32 / (image_width - 1) as f32;
-                            let v = j as f32 / (image_height - 1) as f32;
-                            let r = Ray::new(
-                                origin,
-                                lower_left_corner + horizontal * u + vertical * v - origin,
-                            );
-                            let pixel_color = ray_color(&r, &world);
+                            let mut pixel_color = Color::new(0.0, 0.0, 0.0);
+                            for _ in 0..SAMPLES_PER_PIXEL {
+                                let u =
+                                    ((i as f32) + rng.gen::<f32>()) / ((image_width - 1) as f32);
+                                let v =
+                                    ((j as f32) + rng.gen::<f32>()) / ((image_height - 1) as f32);
+
+                                let r = camera.get_ray(u, v);
+                                pixel_color += ray_color(&r, &world);
+                            }
                             buffer[((image_height - j - 1) * image_width + i) as usize] =
-                                convert_color(pixel_color);
+                                convert_color(&pixel_color, SAMPLES_PER_PIXEL);
                         }
                     }
                     graphics_context.set_buffer(&buffer, image_width as u16, image_height as u16);

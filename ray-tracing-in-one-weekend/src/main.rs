@@ -6,7 +6,7 @@ use rand::Rng;
 use ray::Ray;
 use softbuffer::GraphicsContext;
 use sphere::Sphere;
-use vec3::{unit_vector, Color};
+use vec3::{random_in_unit_sphere, unit_vector, Color};
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop::EventLoop,
@@ -25,10 +25,14 @@ mod ray;
 mod sphere;
 mod vec3;
 
-fn ray_color(ray: &Ray, world: &hittable::HittableList) -> Color {
+fn ray_color(ray: &Ray, world: &hittable::HittableList, depth: u32) -> Color {
+    if depth <= 0 {
+        return Color::zero();
+    }
     // 球在(0,0,-1)处，半径为0.5
-    if let Some(rec) = world.hit(ray, 0.0, f32::INFINITY) {
-        (rec.normal + Color::new(1.0, 1.0, 1.0)) * 0.5
+    if let Some(rec) = world.hit(ray, 0.0, f64::INFINITY) {
+        let target = rec.p + rec.normal + random_in_unit_sphere();
+        ray_color(&Ray::new(rec.p, target - rec.p), world, depth - 1) * 0.5
     } else {
         let unit_direction = unit_vector(ray.direction);
         let t = (unit_direction.y + 1.0) * 0.5;
@@ -40,8 +44,9 @@ fn main() {
     // Image
     let aspect_ratio = 16.0 / 9.0;
     let image_width = 400;
-    let image_height = (image_width as f32 / aspect_ratio) as i32;
+    let image_height = (image_width as f64 / aspect_ratio) as i32;
     const SAMPLES_PER_PIXEL: u32 = 100;
+    const MAX_DEPTH: u32 = 5;
 
     // World
     let world: hittable::HittableList = vec![
@@ -65,6 +70,10 @@ fn main() {
     let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
 
     let mut redraw = true;
+
+    println!("P3");
+    println!("{} {}", image_width, image_height);
+    println!("255");
 
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_wait();
@@ -106,12 +115,11 @@ fn main() {
                             let mut pixel_color = Color::new(0.0, 0.0, 0.0);
                             for _ in 0..SAMPLES_PER_PIXEL {
                                 let u =
-                                    ((i as f32) + rng.gen::<f32>()) / ((image_width - 1) as f32);
+                                    ((i as f64) + rng.gen::<f64>()) / ((image_width - 1) as f64);
                                 let v =
-                                    ((j as f32) + rng.gen::<f32>()) / ((image_height - 1) as f32);
-
+                                    ((j as f64) + rng.gen::<f64>()) / ((image_height - 1) as f64);
                                 let r = camera.get_ray(u, v);
-                                pixel_color += ray_color(&r, &world);
+                                pixel_color += ray_color(&r, &world, MAX_DEPTH);
                             }
                             buffer[((image_height - j - 1) * image_width + i) as usize] =
                                 convert_color(&pixel_color, SAMPLES_PER_PIXEL);
@@ -120,17 +128,6 @@ fn main() {
                     graphics_context.set_buffer(&buffer, image_width as u16, image_height as u16);
                     redraw = false;
                 }
-            }
-            Event::RedrawRequested(_) => {
-                // Redraw the application.
-                //
-                // It's preferable to render in this event rather than in MainEventsCleared, since
-                // rendering in here allows the program to gracefully handle redraws requested
-                // by the OS.
-                //
-                // If you're trying to animate something and need to redraw at a consistent rate,
-                // consider using the `request_redraw` method on `ControlFlow`.
-                println!("Redraw");
             }
             _ => (),
         }

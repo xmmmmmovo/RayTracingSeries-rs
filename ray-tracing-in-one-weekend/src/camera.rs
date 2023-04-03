@@ -12,10 +12,10 @@ pub struct Camera {
 
 impl Camera {
     pub fn new() -> Self {
-        const ASPECT_RATIO: f32 = 16.0 / 9.0;
-        const VIEWPORT_HEIGHT: f32 = 2.0;
-        const VIEWPORT_WIDTH: f32 = ASPECT_RATIO * VIEWPORT_HEIGHT;
-        const FOCAL_LENGTH: f32 = 1.0;
+        const ASPECT_RATIO: f64 = 16.0 / 9.0;
+        const VIEWPORT_HEIGHT: f64 = 2.0;
+        const VIEWPORT_WIDTH: f64 = ASPECT_RATIO * VIEWPORT_HEIGHT;
+        const FOCAL_LENGTH: f64 = 1.0;
 
         let orig = Point3::new(0.0, 0.0, 0.0);
         let h = Vec3::new(VIEWPORT_WIDTH, 0.0, 0.0);
@@ -24,13 +24,13 @@ impl Camera {
 
         Camera {
             origin: orig,
-            lower_left_corner: llc,
             horizontal: h,
             vertical: v,
+            lower_left_corner: llc,
         }
     }
 
-    pub fn get_ray(&self, u: f32, v: f32) -> Ray {
+    pub fn get_ray(&self, u: f64, v: f64) -> Ray {
         Ray::new(
             self.origin,
             self.lower_left_corner + self.horizontal * u + self.vertical * v - self.origin,

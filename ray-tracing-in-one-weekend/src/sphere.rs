@@ -5,7 +5,7 @@ use crate::{
 
 pub struct Sphere {
     pub center: Point3,
-    pub radius: f32,
+    pub radius: f64,
 }
 
 impl Default for Sphere {
@@ -15,13 +15,13 @@ impl Default for Sphere {
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f32) -> Self {
+    pub fn new(center: Point3, radius: f64) -> Self {
         Sphere { center, radius }
     }
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, r: &crate::ray::Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, r: &crate::ray::Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         let oc = r.origin - self.center;
         let a = r.direction.length_squared();
         let half_b = dot(oc, r.direction);

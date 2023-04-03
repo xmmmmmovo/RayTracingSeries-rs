@@ -1,4 +1,4 @@
 .PHONY: run
 
 all:
-	cargo run --release
+	cargo run --release > image.ppm

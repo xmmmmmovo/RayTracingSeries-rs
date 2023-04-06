@@ -1,26 +1,26 @@
-use std::sync::Arc;
+use std::{sync::Arc, cell::Ref};
 
 use crate::{
     material::Scatter,
     ray::Ray,
-    vec3::{dot, Point3, Vec3},
+    vec3::{Point3, Vec3},
 };
 
-pub struct HitRecord {
+pub struct HitRecord<'a> {
     pub p: Point3,
     pub normal: Vec3,
     pub t: f64,
     pub front_face: bool,
-    pub material: Arc<dyn Scatter>,
+    pub material: &'a dyn Scatter,
 }
 
 pub trait Hittable: Send + Sync {
     fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
 }
 
-impl HitRecord {
+impl HitRecord<'_> {
     pub fn set_face_normal(&mut self, r: &Ray, outward_normal: &Vec3) {
-        self.front_face = dot(&r.direction, outward_normal) < 0.0;
+        self.front_face = r.direction.dot(*outward_normal) < 0.0;
         self.normal = if self.front_face {
             *outward_normal
         } else {

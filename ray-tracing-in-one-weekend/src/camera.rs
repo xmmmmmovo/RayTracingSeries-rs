@@ -1,6 +1,6 @@
 use crate::{
     ray::Ray,
-    vec3::{cross, random_in_unit_disk, unit_vector, Point3, Vec3},
+    vec3::{random_in_unit_disk, Point3, Vec3},
 };
 
 pub struct Camera {
@@ -29,9 +29,9 @@ impl Camera {
         let viewport_width = aspect_ratio * viewport_height;
 
         // Camera coordinate system
-        let cw = unit_vector(&(lookfrom - lookat));
-        let cu = unit_vector(&cross(&vup, &cw));
-        let cv = cross(&cw, &cu);
+        let cw = (lookfrom - lookat).normalize();
+        let cu = vup.cross(cw).normalize();
+        let cv = cw.cross(cu);
 
         let h = cu * viewport_width * focus_dist;
         let v = cv * viewport_height * focus_dist;

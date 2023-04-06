@@ -1,20 +1,18 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
-
 use crate::{
     hittable::{HitRecord, Hittable},
     material::Scatter,
     ray::Ray,
-    vec3::{dot, Point3},
+    vec3::Point3,
 };
 
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
-    pub material: Arc<dyn Scatter>,
+    pub material: Box<dyn Scatter>,
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64, material: Arc<dyn Scatter>) -> Self {
+    pub fn new(center: Point3, radius: f64, material: Box<dyn Scatter>) -> Self {
         Sphere {
             center,
             radius,
@@ -27,7 +25,7 @@ impl Hittable for Sphere {
     fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         let oc = r.origin - self.center;
         let a = r.direction.length_squared();
-        let half_b = dot(&oc, &r.direction);
+        let half_b = oc.dot(r.direction);
         let c = oc.length_squared() - self.radius * self.radius;
 
         let discriminant = half_b * half_b - a * c;
@@ -51,7 +49,7 @@ impl Hittable for Sphere {
             normal: Point3::new(0.0, 0.0, 0.0),
             t: root,
             front_face: false,
-            material: self.material.clone(),
+            material: self.material.as_ref(),
         };
         let outward_normal = (rec.p - self.center) / self.radius;
         rec.set_face_normal(r, &outward_normal);

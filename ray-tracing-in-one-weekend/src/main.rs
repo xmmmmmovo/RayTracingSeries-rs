@@ -1,15 +1,11 @@
-use std::{
-    cell::RefCell,
-    sync::{Arc, Mutex},
-    vec,
-};
+use std::{sync::Mutex, vec};
 
 use hittable::{Hittable, HittableList};
 use rand::Rng;
 use ray::Ray;
 use softbuffer::GraphicsContext;
 use sphere::Sphere;
-use vec3::{unit_vector, Color};
+use vec3::{random, Color};
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop::EventLoop,
@@ -22,7 +18,6 @@ use crate::{
     vec3::{convert_color, Point3, Vec3},
 };
 
-use rand::prelude::*;
 use rayon::prelude::*;
 
 mod camera;
@@ -34,16 +29,16 @@ mod vec3;
 
 fn ray_color(ray: &Ray, world: &hittable::HittableList, depth: u32) -> Color {
     if depth <= 0 {
-        return Color::zero();
+        return Color::ZERO;
     }
     if let Some(rec) = world.hit(ray, 0.001, f64::INFINITY) {
         if let Some((attenuation, scattered)) = rec.material.scatter(ray, &rec) {
             ray_color(&scattered, world, depth - 1) * attenuation
         } else {
-            Color::zero()
+            Color::ZERO
         }
     } else {
-        let unit_direction = unit_vector(&ray.direction);
+        let unit_direction = ray.direction.normalize();
         let t = (unit_direction.y + 1.0) * 0.5;
         Color::new(1.0, 1.0, 1.0) * (1.0 - t) + Color::new(0.5, 0.7, 1.0) * t
     }
@@ -53,7 +48,7 @@ fn random_scene() -> HittableList {
     let mut rng = rand::thread_rng();
     let mut world = HittableList::new();
 
-    let ground_mat = Arc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
+    let ground_mat = Box::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
     let ground_sphere = Sphere::new(Point3::new(0.0, -1000.0, 0.0), 1000.0, ground_mat);
 
     world.push(Box::new(ground_sphere));
@@ -69,22 +64,22 @@ fn random_scene() -> HittableList {
 
             if choose_mat < 0.8 {
                 // Diffuse
-                let albedo = Color::random(0.0..1.0) * Color::random(0.0..1.0);
-                let sphere_mat = Arc::new(Lambertian::new(albedo));
+                let albedo = random(0.0..1.0) * random(0.0..1.0);
+                let sphere_mat = Box::new(Lambertian::new(albedo));
                 let sphere = Sphere::new(center, 0.2, sphere_mat);
 
                 world.push(Box::new(sphere));
             } else if choose_mat < 0.95 {
                 // Metal
-                let albedo = Color::random(0.4..1.0);
+                let albedo = random(0.4..1.0);
                 let fuzz = rng.gen_range(0.0..0.5);
-                let sphere_mat = Arc::new(Metal::new(albedo, fuzz));
+                let sphere_mat = Box::new(Metal::new(albedo, fuzz));
                 let sphere = Sphere::new(center, 0.2, sphere_mat);
 
                 world.push(Box::new(sphere));
             } else {
                 // Glass
-                let sphere_mat = Arc::new(Dielectric::new(1.5));
+                let sphere_mat = Box::new(Dielectric::new(1.5));
                 let sphere = Sphere::new(center, 0.2, sphere_mat);
 
                 world.push(Box::new(sphere));
@@ -92,9 +87,9 @@ fn random_scene() -> HittableList {
         }
     }
 
-    let mat1 = Arc::new(Dielectric::new(1.5));
-    let mat2 = Arc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
-    let mat3 = Arc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
+    let mat1 = Box::new(Dielectric::new(1.5));
+    let mat2 = Box::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
+    let mat3 = Box::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
 
     let sphere1 = Sphere::new(Point3::new(0.0, 1.0, 0.0), 1.0, mat1);
     let sphere2 = Sphere::new(Point3::new(-4.0, 1.0, 0.0), 1.0, mat2);
@@ -136,7 +131,7 @@ fn main() {
     );
 
     // Render
-    let mut buffer = Mutex::new(vec![0u32; (image_width * image_height) as usize]);
+    let buffer = Mutex::new(vec![0u32; (image_width * image_height) as usize]);
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -147,6 +142,7 @@ fn main() {
     let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
 
     let mut redraw = true;
+    let mut flushed = false;
 
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_wait();
@@ -161,34 +157,25 @@ fn main() {
                         let mut camera_state = false;
                         if virtual_keycode == VirtualKeyCode::Escape {
                             *control_flow = winit::event_loop::ControlFlow::Exit;
-                        } else if virtual_keycode == VirtualKeyCode::W {
+                            return;
+                        }
+
+                        if !flushed {
+                            return;
+                        }
+
+                        if virtual_keycode == VirtualKeyCode::W {
                             lookfrom.z -= 1.0;
-                            redraw = true;
                             camera_state = true;
                         } else if virtual_keycode == VirtualKeyCode::S {
                             lookfrom.z += 1.0;
-                            redraw = true;
                             camera_state = true;
                         } else if virtual_keycode == VirtualKeyCode::A {
                             lookfrom.x -= 1.0;
-                            redraw = true;
                             camera_state = true;
                         } else if virtual_keycode == VirtualKeyCode::D {
                             lookfrom.x += 1.0;
-                            redraw = true;
                             camera_state = true;
-                        } else if virtual_keycode == VirtualKeyCode::U {
-                            samples_per_pixel *= 10;
-                            if samples_per_pixel >= 500 {
-                                samples_per_pixel = 500;
-                            }
-                            redraw = true;
-                        } else if virtual_keycode == VirtualKeyCode::I {
-                            samples_per_pixel /= 10;
-                            if samples_per_pixel == 0 {
-                                samples_per_pixel = 1;
-                            }
-                            redraw = true;
                         }
 
                         if camera_state {
@@ -203,6 +190,20 @@ fn main() {
                                 dist_to_focus,
                             )
                         }
+
+                        if virtual_keycode == VirtualKeyCode::U {
+                            samples_per_pixel *= 10;
+                            if samples_per_pixel >= 500 {
+                                samples_per_pixel = 500;
+                            }
+                        } else if virtual_keycode == VirtualKeyCode::I {
+                            samples_per_pixel /= 10;
+                            if samples_per_pixel == 0 {
+                                samples_per_pixel = 1;
+                            }
+                        }
+
+                        redraw = true;
                     }
                 }
                 _ => (),
@@ -232,13 +233,13 @@ fn main() {
                                 [((image_height - j - 1) * image_width + i) as usize] =
                                 convert_color(&pixel_color, samples_per_pixel);
                         });
-                        println!("Scanlines remaining: {}", j);
                     }
                     graphics_context.set_buffer(
                         &(buffer.lock().unwrap()),
                         image_width as u16,
                         image_height as u16,
                     );
+                    flushed = true;
                     redraw = false;
                 }
             }

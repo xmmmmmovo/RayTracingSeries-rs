@@ -1,0 +1,2 @@
+[workspace]
+members = ["ray-tracing-in-one-weekend", "ray-tracing-the-next-week"]

@@ -1,5 +1,3 @@
-use std::{sync::Arc, cell::Ref};
-
 use crate::{
     material::Scatter,
     ray::Ray,

@@ -1,4 +1,4 @@
-# RayTracingInOneMonth
+# RayTracingSeries-rs
 
 One month in raytracing.
 

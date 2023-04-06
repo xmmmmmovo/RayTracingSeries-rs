@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 winit = "0.28.3"
 softbuffer = { version = "0.2.0" }
-lazy_static = "1.4.0"
 rand = "0.8.5"
+rayon = "1.7.0"

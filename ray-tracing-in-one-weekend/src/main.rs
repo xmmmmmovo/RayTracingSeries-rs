@@ -160,7 +160,7 @@ fn main() {
                             return;
                         }
 
-                        if !flushed {
+                        if redraw {
                             return;
                         }
 
@@ -239,7 +239,6 @@ fn main() {
                         image_width as u16,
                         image_height as u16,
                     );
-                    flushed = true;
                     redraw = false;
                 }
             }

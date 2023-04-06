@@ -7,7 +7,7 @@ use softbuffer::GraphicsContext;
 use sphere::Sphere;
 use vec3::{random, Color};
 use winit::{
-    event::{Event, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, VirtualKeyCode, WindowEvent},
     event_loop::EventLoop,
     window::WindowBuilder,
 };
@@ -153,7 +153,10 @@ fn main() {
                 }
                 WindowEvent::KeyboardInput { input, .. } => {
                     if let Some(virtual_keycode) = input.virtual_keycode {
-                        let mut camera_state = false;
+                        if input.state == ElementState::Released {
+                            return;
+                        }
+
                         if virtual_keycode == VirtualKeyCode::Escape {
                             *control_flow = winit::event_loop::ControlFlow::Exit;
                             return;
@@ -165,19 +168,19 @@ fn main() {
 
                         if virtual_keycode == VirtualKeyCode::W {
                             lookfrom.z -= 1.0;
-                            camera_state = true;
+                            redraw = true;
                         } else if virtual_keycode == VirtualKeyCode::S {
                             lookfrom.z += 1.0;
-                            camera_state = true;
+                            redraw = true;
                         } else if virtual_keycode == VirtualKeyCode::A {
                             lookfrom.x -= 1.0;
-                            camera_state = true;
+                            redraw = true;
                         } else if virtual_keycode == VirtualKeyCode::D {
                             lookfrom.x += 1.0;
-                            camera_state = true;
+                            redraw = true;
                         }
 
-                        if camera_state {
+                        if redraw {
                             println!("lookfrom: {:?}", lookfrom);
                             camera = Camera::new(
                                 lookfrom,
@@ -195,14 +198,14 @@ fn main() {
                             if samples_per_pixel >= 500 {
                                 samples_per_pixel = 500;
                             }
+                            redraw = true;
                         } else if virtual_keycode == VirtualKeyCode::I {
                             samples_per_pixel /= 10;
                             if samples_per_pixel == 0 {
                                 samples_per_pixel = 1;
                             }
+                            redraw = true;
                         }
-
-                        redraw = true;
                     }
                 }
                 _ => (),
@@ -216,6 +219,7 @@ fn main() {
                 // applications which do not always need to. Applications that redraw continuously
                 // can just render here instead.
                 if redraw {
+                    println!("start draw..., spp: {}", samples_per_pixel);
                     for j in (0..image_height).rev() {
                         (0..image_width).into_par_iter().for_each(|i| {
                             let mut pixel_color = Color::new(0.0, 0.0, 0.0);
@@ -233,6 +237,7 @@ fn main() {
                                 convert_color(&pixel_color, samples_per_pixel);
                         });
                     }
+                    println!("Done.");
                     graphics_context.set_buffer(
                         &(buffer.lock().unwrap()),
                         image_width as u16,

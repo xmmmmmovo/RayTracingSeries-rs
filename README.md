@@ -13,3 +13,9 @@ One month in raytracing.
 > 已开启并行计算
 
 ## RayTracingTheNextWeek
+
+
+
+## Reference
+
+[Ray Tracing in One Weekend — The Book Series](https://raytracing.github.io/)

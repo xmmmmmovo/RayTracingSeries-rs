@@ -16,13 +16,17 @@ pub fn random(range: Range<f64>) -> Vec3 {
 }
 
 pub fn random_in_unit_sphere() -> Vec3 {
-    loop {
-        let p = random(-1.0..1.0);
-        if p.length_squared() >= 1.0 {
-            continue;
-        }
-        return p;
-    }
+    let mut rng = rand::thread_rng();
+
+    // Generate random point on the surface of a cube
+    let x = rng.gen_range(-1.0..=1.0);
+    let y = rng.gen_range(-1.0..=1.0);
+    let z = rng.gen_range(-1.0..=1.0);
+
+    // Compute square root and reciprocal square root
+    let inv_length: f64 = 1.0 / (x * x + y * y + z * z as f64).sqrt();
+
+    Vec3::new(x * inv_length, y * inv_length, z * inv_length)
 }
 
 pub fn random_in_unit_disk() -> Vec3 {

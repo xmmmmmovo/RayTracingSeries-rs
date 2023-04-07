@@ -6,7 +6,7 @@ One month in raytracing.
 
 ![img](outputs/hi_sampler.png)
 
-> 默认Sample为1，U键 `*10`，I键 `/10` 
+> 默认spp为1，U键 `*10`，I键 `/10`
 >
 > WSAD移动Camera，永远看向(0,0,0)点
 >

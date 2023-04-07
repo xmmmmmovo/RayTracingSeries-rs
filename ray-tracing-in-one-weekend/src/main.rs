@@ -1,4 +1,4 @@
-use std::{sync::Mutex, vec};
+use std::{sync::Mutex, time::Instant, vec};
 
 use hittable::{Hittable, HittableList};
 use rand::Rng;
@@ -105,8 +105,12 @@ fn random_scene() -> HittableList {
 fn main() {
     // Image
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    let image_width = 800;
-    let image_height = (image_width as f64 / ASPECT_RATIO) as i32;
+
+    const IMAGE_WIDTH: i32 = 800;
+    const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
+    const FRAC_IMAGE_WIDTH: f64 = 1.0 / ((IMAGE_WIDTH - 1) as f64);
+    const FRAC_IMAGE_HEIGHT: f64 = 1.0 / ((IMAGE_HEIGHT - 1) as f64);
+
     let mut samples_per_pixel: u32 = 1;
     const MAX_DEPTH: u32 = 50;
 
@@ -131,12 +135,12 @@ fn main() {
     );
 
     // Render
-    let buffer = Mutex::new(vec![0u32; (image_width * image_height) as usize]);
+    let buffer = Mutex::new(vec![0u32; (IMAGE_WIDTH * IMAGE_HEIGHT) as usize]);
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Image Window")
-        .with_inner_size(winit::dpi::LogicalSize::new(image_width, image_height))
+        .with_inner_size(winit::dpi::LogicalSize::new(IMAGE_WIDTH, IMAGE_HEIGHT))
         .build(&event_loop)
         .unwrap();
     let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
@@ -220,28 +224,28 @@ fn main() {
                 // can just render here instead.
                 if redraw {
                     println!("start draw..., spp: {}", samples_per_pixel);
-                    for j in (0..image_height).rev() {
-                        (0..image_width).into_par_iter().for_each(|i| {
+                    let start = Instant::now();
+                    (0..IMAGE_HEIGHT).into_par_iter().for_each(|j| {
+                        for i in 0..IMAGE_WIDTH {
                             let mut pixel_color = Color::new(0.0, 0.0, 0.0);
                             let mut rng = rand::thread_rng();
                             for _ in 0..samples_per_pixel {
-                                let u =
-                                    ((i as f64) + rng.gen::<f64>()) / ((image_width - 1) as f64);
-                                let v =
-                                    ((j as f64) + rng.gen::<f64>()) / ((image_height - 1) as f64);
+                                let u = ((i as f64) + rng.gen::<f64>()) * FRAC_IMAGE_WIDTH;
+                                let v = ((j as f64) + rng.gen::<f64>()) * FRAC_IMAGE_HEIGHT;
                                 let r = camera.get_ray(u, v);
                                 pixel_color += ray_color(&r, &world, MAX_DEPTH);
                             }
                             buffer.lock().unwrap()
-                                [((image_height - j - 1) * image_width + i) as usize] =
+                                [((IMAGE_HEIGHT - j - 1) * IMAGE_WIDTH + i) as usize] =
                                 convert_color(&pixel_color, samples_per_pixel);
-                        });
-                    }
+                        }
+                    });
+                    println!("Time spent: {:?}", start.elapsed());
                     println!("Done.");
                     graphics_context.set_buffer(
                         &(buffer.lock().unwrap()),
-                        image_width as u16,
-                        image_height as u16,
+                        IMAGE_WIDTH as u16,
+                        IMAGE_HEIGHT as u16,
                     );
                     redraw = false;
                 }
